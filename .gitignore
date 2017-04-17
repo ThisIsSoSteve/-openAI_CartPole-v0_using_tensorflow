@@ -12,6 +12,7 @@
 
 #python
 *.npy
+temp/
 
 # Build results
 [Dd]ebug/

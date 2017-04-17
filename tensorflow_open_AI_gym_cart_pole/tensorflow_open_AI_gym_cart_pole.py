@@ -1,22 +1,21 @@
 import os
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #hide CUDA logging
 import gym
 #from gym import envs
 #from gym.envs.registration import EnvSpec
 #import random
 import numpy as np
-import tensorflow as tf
+import tensorflow as tf #running the GPU version
 from statistics import median, mean
 from collections import Counter
 
-goal_steps = 500
 score_requirement = 50
-initial_games = 10000
+initial_games = 1000
 hm_epochs = 3
 batch_size = 500
 
 #save model *think it tries to save to a CUDA path with out the full path
-model_save_path = 'E:/Neural Network Projects/Python/tensorflow_open_AI_gym_cart_pole/tensorflow_open_AI_gym_cart_pole/my_cart_poleV0_model.ckpt'
+model_save_path = 'E:/Neural Network Projects/Python/tensorflow_open_AI_gym_cart_pole/tensorflow_open_AI_gym_cart_pole/temp/my_cart_poleV0_model.ckpt'
 
 env = gym.make('CartPole-v0')
 env.reset()
@@ -44,11 +43,10 @@ def initial_training_data():
         score = 0
         game_memory = []
         prev_observation = []
-        for _ in range(goal_steps):
+        while True:
             action = env.action_space.sample() #random.randrange(0, 2)
             observation, reward, done, info = env.step(action)
-            #observation = [position of cart, velocity of cart, angle of pole,
-            #rotation rate of pole]
+            #observation = [position of cart, velocity of cart, angle of pole, rotation rate of pole]
 
             if len(prev_observation) > 0:
                 game_memory.append([prev_observation, action])
@@ -199,8 +197,8 @@ def use_neural_network():
     #print(score_requirement)
 
 
-#initial_training_data()
-#my_saved_training_data = np.load('training.npy')
-#train_neural_network(my_saved_training_data)
+initial_training_data()
+my_saved_training_data = np.load('training.npy')
+train_neural_network(my_saved_training_data)
 
 use_neural_network()
