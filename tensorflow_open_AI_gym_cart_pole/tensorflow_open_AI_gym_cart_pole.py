@@ -11,7 +11,7 @@ from collections import Counter
 
 score_requirement = 50
 initial_games = 1000
-hm_epochs = 3
+hm_epochs = 5
 batch_size = 500
 
 #save model *think it tries to save to a CUDA path with out the full path
@@ -83,20 +83,23 @@ def initial_training_data():
 n_nodes_hidden_layer1 = 16
 n_nodes_hidden_layer2 = 32
 
+input_size = 4
+output_size = 2
+
 #input
-x = tf.placeholder(tf.float32, shape=[None, 4])
+x = tf.placeholder(tf.float32)
 #output
-y = tf.placeholder(tf.float32, shape=[None, 2])
+y = tf.placeholder(tf.float32)
 
  #define weights and biases dictionary
-hidden_1_layer = {'weights':tf.Variable(tf.random_normal([4, n_nodes_hidden_layer1])),
+hidden_1_layer = {'weights':tf.Variable(tf.random_normal([input_size, n_nodes_hidden_layer1])),
                     'biases': tf.Variable(tf.random_normal([n_nodes_hidden_layer1]))}
 
 hidden_2_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hidden_layer1,n_nodes_hidden_layer2])),
                     'biases': tf.Variable(tf.random_normal([n_nodes_hidden_layer2]))}
 
-output_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hidden_layer2,2])),
-                'biases': tf.Variable(tf.random_normal([2]))}
+output_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hidden_layer2,output_size])),
+                'biases': tf.Variable(tf.random_normal([output_size]))}
 #multilayer_perceptron
 def neural_network_model(data):
 
@@ -197,8 +200,8 @@ def use_neural_network():
     #print(score_requirement)
 
 
-initial_training_data()
-my_saved_training_data = np.load('training.npy')
-train_neural_network(my_saved_training_data)
+#initial_training_data()
+#my_saved_training_data = np.load('training.npy')
+#train_neural_network(my_saved_training_data)
 
 use_neural_network()
