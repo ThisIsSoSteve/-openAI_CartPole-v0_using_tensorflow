@@ -1,8 +1,6 @@
 import os
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3' #hide CUDA logging
 import gym
-#from gym import envs
-#from gym.envs.registration import EnvSpec
 #import random
 import numpy as np
 import tensorflow as tf #running the GPU version
@@ -19,6 +17,8 @@ model_save_path = 'E:/Neural Network Projects/Python/tensorflow_open_AI_gym_cart
 
 env = gym.make('CartPole-v0')
 env.reset()
+
+#env.seed(RANDOM_SEED)
 
 #print(envs.registry.all())
 #print(EnvSpec('CartPole-v0'))
@@ -83,8 +83,14 @@ def initial_training_data():
 n_nodes_hidden_layer1 = 16
 n_nodes_hidden_layer2 = 32
 
-input_size = 4
-output_size = 2
+input_size = env.observation_space.shape[0] #4
+output_size = env.action_space.n #2
+
+print("Observation shape:", input_size)
+print("Action shape:", output_size)
+#print("Highest Observation:", env.observation_space.high)
+#print("Lowest Observation:", env.observation_space.low)
+
 
 #input
 x = tf.placeholder(tf.float32)
