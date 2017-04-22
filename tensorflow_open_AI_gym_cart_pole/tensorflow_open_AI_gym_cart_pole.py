@@ -8,9 +8,9 @@ from statistics import median, mean
 from collections import Counter
 
 score_requirement = 50
-initial_games = 1000
-hm_epochs = 5
-batch_size = 500
+initial_games = 100000
+hm_epochs = 10
+batch_size = 100
 
 #save model *think it tries to save to a CUDA path with out the full path
 model_save_path = 'E:/Neural Network Projects/Python/tensorflow_open_AI_gym_cart_pole/tensorflow_open_AI_gym_cart_pole/temp/my_cart_poleV0_model.ckpt'
@@ -18,22 +18,8 @@ model_save_path = 'E:/Neural Network Projects/Python/tensorflow_open_AI_gym_cart
 env = gym.make('CartPole-v0')
 env.reset()
 
-#env.seed(RANDOM_SEED)
+#env.seed(0)
 
-#print(envs.registry.all())
-#print(EnvSpec('CartPole-v0'))
-
-#def random_game():
-#    for episode in range(5):
-#        env.reset()
-#        for t in range(goal_step):
-#            env.render()
-#            action = env.action_space.sample()
-#            observation, reward, done, info = env.step(action)
-#            if done:
-#                break
-
-#random_game()
 def initial_training_data():
     training_data = []
     scores = []
@@ -79,10 +65,6 @@ def initial_training_data():
 
     return training_data
 
-
-n_nodes_hidden_layer1 = 16
-n_nodes_hidden_layer2 = 32
-
 input_size = env.observation_space.shape[0] #4
 output_size = env.action_space.n #2
 
@@ -91,34 +73,43 @@ print("Action shape:", output_size)
 #print("Highest Observation:", env.observation_space.high)
 #print("Lowest Observation:", env.observation_space.low)
 
-
 #input
 x = tf.placeholder(tf.float32)
 #output
 y = tf.placeholder(tf.float32)
 
- #define weights and biases dictionary
-hidden_1_layer = {'weights':tf.Variable(tf.random_normal([input_size, n_nodes_hidden_layer1])),
-                    'biases': tf.Variable(tf.random_normal([n_nodes_hidden_layer1]))}
+#network map [number of nodes, activation]
+network_map = np.array([[32, 1],[4, 1],[output_size, -1]])
+#network_map = tf.constant([[16, 0], [32, 0],[2, -1]])
+network_dictionary = {}
 
-hidden_2_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hidden_layer1,n_nodes_hidden_layer2])),
-                    'biases': tf.Variable(tf.random_normal([n_nodes_hidden_layer2]))}
+def neural_network_model_generator(layer_feed):
 
-output_layer = {'weights':tf.Variable(tf.random_normal([n_nodes_hidden_layer2,output_size])),
-                'biases': tf.Variable(tf.random_normal([output_size]))}
-#multilayer_perceptron
-def neural_network_model(data):
+    #layer_feed = data
+    layer_size = input_size
+    
+    #rows = network_map.get_shape()[0].value
+    rows = np.shape(network_map)[0]
+    
+    for i in range(rows):
 
-    #(input_data * weights) + biases
-    layer1 = tf.matmul(data, hidden_1_layer['weights']) + hidden_1_layer['biases']
-    layer1 = tf.nn.relu(layer1) #activation function nn.sigmoid nn.tanh
+        layer_number = i + 1
 
-    layer2 = tf.matmul(layer1, hidden_2_layer['weights']) + hidden_2_layer['biases']
-    layer2 = tf.nn.relu(layer2)
+        network_dictionary['layer{}_weights'.format(layer_number)]  = tf.Variable(tf.random_normal([layer_size, network_map[i][0]]))
+        network_dictionary['layer{}_biases'.format(layer_number)]  = tf.Variable(tf.random_normal([network_map[i][0]]))
 
-    output = tf.matmul(layer2, output_layer['weights']) + output_layer['biases']
+        layer_feed = tf.matmul(layer_feed, network_dictionary['layer{}_weights'.format(layer_number)]) + network_dictionary['layer{}_biases'.format(layer_number)]
+        layer_size = network_map[i][0]
 
-    return output
+        if(network_map[i][1] != -1):
+            if(network_map[i][1] == 0):
+                network_dictionary['layer{}_activation'.format(layer_number)] = tf.nn.relu(layer_feed)
+            if(network_map[i][1] == 1):
+                network_dictionary['layer{}_activation'.format(layer_number)] = tf.nn.sigmoid(layer_feed)
+
+            layer_feed = network_dictionary['layer{}_activation'.format(layer_number)]
+        
+    return layer_feed
 
 def train_neural_network(training_data):
 
@@ -131,7 +122,8 @@ def train_neural_network(training_data):
     #x shape = [n, 4]
     #y shape = [n, 2]
 
-    prediction = neural_network_model(x)
+    #prediction = neural_network_model(x)
+    prediction = neural_network_model_generator(x)
     cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y))
 
     optimizer = tf.train.AdamOptimizer().minimize(cost)
@@ -158,18 +150,22 @@ def train_neural_network(training_data):
 
             print('Epoch', epoch + 1, 'completed out of', hm_epochs, 'loss:', epoch_loss)
         
-        saver.save(sess, model_save_path)#global_step=hm_epochs
+        saver.save(sess, model_save_path)#global_step=hm_epochs       
         
 def use_neural_network():
 
     scores = []
     choices = []
-
-    prediction = neural_network_model(x)
+    #prediction = neural_network_model(x)
+    prediction = neural_network_model_generator(x)
     saver = tf.train.Saver()
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
         saver.restore(sess, model_save_path)
+
+        #print(sess.run(network_dictionary['layer1_weights']))
+        #print(abs(sess.run(network_dictionary['layer1_weights']))>0.5 )
+        #print(abs(sess.run(network_dictionary['layer2_weights']))>0.5 )
 
         for each_game in range(10):
             score = 0
@@ -184,10 +180,14 @@ def use_neural_network():
                     action = env.action_space.sample()#random.randrange(0,2)
                 else:
                     predictedAction = sess.run(prediction, feed_dict={x:prev_obs.reshape(-1, len(prev_obs))})
+                    
                     action = np.argmax(predictedAction)#tf.arg_max is really slow
+                    #action = np.argmax(action)
+                    #print(sess.run(network_dictionary['layer1_activation'], feed_dict={x:prev_obs.reshape(-1, len(prev_obs))}))
+
                     #predictedAction = sess.run(tf.arg_max(predictedAction),1)
                     #action = sess.run(tf.argmax(prediction.eval(feed_dict={x:prev_obs.reshape(-1, len(prev_obs))}),1)[0])
-                    #print('prediction action:', predictedAction)
+                    #print('prediction action:', action)
 
                 choices.append(action)
 
@@ -207,7 +207,5 @@ def use_neural_network():
 
 
 #initial_training_data()
-#my_saved_training_data = np.load('training.npy')
-#train_neural_network(my_saved_training_data)
-
+#train_neural_network(np.load('training.npy'))
 use_neural_network()
