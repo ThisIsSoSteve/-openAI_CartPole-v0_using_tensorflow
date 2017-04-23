@@ -8,8 +8,8 @@ from statistics import median, mean
 from collections import Counter
 
 score_requirement = 50
-initial_games = 100000
-hm_epochs = 10
+initial_games = 1000
+number_of_epochs = 200
 batch_size = 100
 
 #save model *think it tries to save to a CUDA path with out the full path
@@ -79,7 +79,7 @@ x = tf.placeholder(tf.float32)
 y = tf.placeholder(tf.float32)
 
 #network map [number of nodes, activation]
-network_map = np.array([[32, 1],[4, 1],[output_size, -1]])
+network_map = np.array([[32, 2],[4, 2],[output_size, -1]])
 #network_map = tf.constant([[16, 0], [32, 0],[2, -1]])
 network_dictionary = {}
 
@@ -106,6 +106,8 @@ def neural_network_model_generator(layer_feed):
                 network_dictionary['layer{}_activation'.format(layer_number)] = tf.nn.relu(layer_feed)
             if(network_map[i][1] == 1):
                 network_dictionary['layer{}_activation'.format(layer_number)] = tf.nn.sigmoid(layer_feed)
+            if(network_map[i][1] == 2):
+                network_dictionary['layer{}_activation'.format(layer_number)] = tf.nn.tanh(layer_feed)
 
             layer_feed = network_dictionary['layer{}_activation'.format(layer_number)]
         
@@ -133,7 +135,7 @@ def train_neural_network(training_data):
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
 
-        for epoch in range(hm_epochs):
+        for epoch in range(number_of_epochs):
             epoch_loss = 0
 
             i = 0
@@ -148,7 +150,7 @@ def train_neural_network(training_data):
                 epoch_loss += c
                 i += batch_size
 
-            print('Epoch', epoch + 1, 'completed out of', hm_epochs, 'loss:', epoch_loss)
+            print('Epoch', epoch + 1, 'completed out of', number_of_epochs, 'loss:', epoch_loss)
         
         saver.save(sess, model_save_path)#global_step=hm_epochs       
         
@@ -167,7 +169,7 @@ def use_neural_network():
         #print(abs(sess.run(network_dictionary['layer1_weights']))>0.5 )
         #print(abs(sess.run(network_dictionary['layer2_weights']))>0.5 )
 
-        for each_game in range(10):
+        for each_game in range(100):
             score = 0
             game_memory = []
             prev_obs = []
@@ -203,9 +205,96 @@ def use_neural_network():
 
     print('Average Score:',sum(scores)/len(scores))
     print('choice 1:{}  choice 0:{}'.format(choices.count(1)/len(choices),choices.count(0)/len(choices)))
-    #print(score_requirement)
 
-
+#old ones
 #initial_training_data()
 #train_neural_network(np.load('training.npy'))
+#use_neural_network()
+
+
+'''
+loop
+    play one frame of game
+    if game is not done
+        train model
+    else
+        reset game   
+'''
+def play_and_train_network():
+
+    prediction = neural_network_model_generator(x)
+
+    cost = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(logits=prediction, labels=y))
+    optimizer = tf.train.AdamOptimizer().minimize(cost)
+
+    saver = tf.train.Saver()
+    with tf.Session() as sess:
+        sess.run(tf.global_variables_initializer())
+        trained = False
+        training_data = []
+        score_thershold = 50
+        for epoch in range(number_of_epochs):
+            epoch_loss = 0
+            env.reset()
+            game_memory = []
+            prev_observation = []
+            current_score = 0
+
+            while True:
+                if len(prev_observation) == 0 or trained == False:
+                    action = env.action_space.sample()
+                    #print('first action:', action)
+                else:
+                    predictedAction = sess.run(prediction, feed_dict={x:prev_observation.reshape(-1, len(prev_observation))})
+                    action = np.argmax(predictedAction)
+                    
+                observation, reward, done, info = env.step(action)
+
+                if len(prev_observation) > 0:
+                    game_memory.append([prev_observation, action])
+
+                prev_observation = observation
+                current_score += reward
+
+                if done:
+                    print(current_score)
+                    break #don't train failed move
+            
+            if current_score >= score_thershold or trained:
+                #print("training")
+                if current_score >= score_thershold:
+                    trained = True
+                    for data in game_memory:
+                        if data[1] == 1:
+                            output = [0, 1]
+                        else:
+                            output = [1, 0]
+
+                        training_data.append([data[0], output])
+                    score_thershold = current_score
+                        
+                #train
+                train_x = np.array([i[0] for i in training_data]).reshape(-1,len(training_data[0][0]))
+                train_y = [i[1] for i in training_data]
+
+                i = 0
+                while i < len(train_x):
+                    batch_start = i
+                    batch_end = i + batch_size
+
+                    batch_x = np.array(train_x[batch_start:batch_end])#slice input data
+                    batch_y = np.array(train_y[batch_start:batch_end])#slice labels (output)
+
+                    _, c = sess.run([optimizer, cost], feed_dict = {x: batch_x, y: batch_y})
+                    epoch_loss += c
+                    i += batch_size
+                
+                
+            print('episodes {} out of {} complete'.format(epoch + 1, number_of_epochs))
+           #print(sess.run(network_dictionary['layer2_weights']))
+        saver.save(sess, model_save_path)#global_step=hm_epochs    
+        
+#play_and_train_network()
 use_neural_network()
+                
+
